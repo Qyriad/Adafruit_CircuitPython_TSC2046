@@ -28,7 +28,6 @@ Implementation Notes
   based on the library's use of either.
 
  * Adafruit's Bus Device library: https://github.com/adafruit/Adafruit_CircuitPython_BusDevice
-# * Adafruit's Register library: https://github.com/adafruit/Adafruit_CircuitPython_Register
 """
 
 # imports
@@ -73,42 +72,6 @@ class Addr:
 
 class CommandBits:
 
-    # def __init__(self):
-
-        # self.byte = 1 << 7 # START bit, always 1.
-
-    # @property
-    # def addr(self) -> int:
-        # return (self.byte >> 4) & 0b111
-
-    # @addr.setter
-    # def addr(self, value: int):
-        # self.byte |= ((value & 0b111) << 4)
-
-    # @property
-    # def use_8_bit_conv(self) -> bool:
-        # return ((self.byte >> 3) & 0b1) == 1
-
-    # @use_8_bit_conv.setter
-    # def use_8_bit_conv(self, value: bool):
-        # self.byte |= (int(value) << 3)
-
-    # @property
-    # def single_ended_ref(self) -> bool:
-        # return ((self.byte >> 2) & 0b1) == 1
-
-    # @single_ended_ref.setter
-    # def single_ended_ref(self, value: bool):
-        # self.byte |= (int(value) << 2)
-
-    # @property
-    # def enable_internal_vref(self) -> bool:
-        # return ((self.byte >> 1) & 0b1) == 1
-
-    # @enable_internal_vref.setter
-    # def enable_internal_vref(self, value: bool):
-        # self.byte |= (int(value) << 1)
-
     def __init__(self):
 
         self.addr = 0
@@ -136,7 +99,7 @@ class CommandBits:
 class TSPoint:
 
     """
-    The type returned by :py:meth:`TSC2046.get_point`, which represents a
+    The type of :py:attr:`TSC2046.touched_point`, which represents a
     touchscreen point. See the individual fields for more information.
     """
 
@@ -172,7 +135,7 @@ class TSPoint:
 class TSC2046:
     """
     General class for interacting with the TI TSC2046 touchscreen.
-
+    You probably want :py:attr:`touched_point`.
     """
 
     def __init__(self, spi: busio.SPI, cs: digitalio.DigitalInOut, x_resistance=400, baudrate=SPI_DEFAULT_FREQ_HZ):
@@ -187,7 +150,7 @@ class TSC2046:
         Connecting VRef to a voltage higher than 2.5V increases the accuracy of
         **non**-touchscreen reads (temperature, battery voltage, and auxilary
         voltage), and also directly determines the maximum voltage that can be
-        measured by TSC2046.read_auxiliary_voltage. It has no effect on
+        measured by :py:attr:`auxiliary_voltage`. It has no effect on
         touchscreen coordinate reads.
 
         The TSC2046's VRef pin should either be connected to the same supply as
@@ -203,7 +166,7 @@ class TSC2046:
         # 100kΩ. To be on the safe side we'll use 100kΩ as the default threshold.
         self.touched_threshold: float = 100_000
         """
-        The threshold for :py:meth:`TSC2046.is_touched`.
+        The threshold for :py:attr:`is_touched`.
 
         This should be the resistance value (technically in ohms) to use as
         the threshold for :py:meth:`TSC2046.is_touched`. Any pressure
@@ -427,29 +390,43 @@ class TSC2046:
         return (raw_vaux * self._effective_vref()) / 4096
 
 
+    @property
     def is_touched(self) -> bool:
         """
         Determines if the touchscreen is currently being touched.
 
-        The X and Y coordinates returned by :py:meth:`get_point` are
-        meaningless if this is `False`
-
         You can also change the threshold used to determine if the touchscreen
         is being touched by setting :py:attr:`TSC2046.touched_threshold`.
+
+        .. seealso:: :py:meth:`touched_point`
 
         :returns: `True` if the touchscreen is being touched, `False` if it is
             not.
         :rtype: bool
         """
 
-        return self._is_point_touched(self.get_point())
+        return self._is_point_touched(self._get_point())
 
+    @property
+    def touched_point(self) -> Optional[TSPoint]:
+        """
+        The X, Y, and Z coordinates of the current touch on the touchscreen, or
+        `None` if the touchscreen is not being touched.
+        """
 
-    def get_point(self):
+        point = self._get_point()
+        if self._is_point_touched(point):
+            return point
+        else:
+            return None
+
+    def _get_point(self) -> TSPoint:
         """
         Gets the coordinates of the current touch on the touchscreen.
         Use :py:meth:`TSC2046.is_touched` to determine if the touchscreen is
         being touched in the first place.
+
+        .. seealso:: :py:attr:`touched_point`
 
         :returns: The X, Y, and Z (pressure) coordinates.
         :rtype: TSPoint
