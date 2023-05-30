@@ -46,6 +46,10 @@ __repo__ = "https://github.com/Qyriad/Adafruit_CircuitPython_TSC2046.git"
 # Use 2kHz as a reasonable default frequency.
 SPI_DEFAULT_FREQ_HZ = const(2_000_000)
 
+INTERNAL_VREF = const(2.5)
+
+VBAT_MULTIPLIER = const(4)
+
 class Addr:
 
     class Ser:
@@ -237,6 +241,12 @@ class TSC2046:
         self.spi_device = SPIDevice(spi, cs, baudrate=baudrate, polarity=0, phase=0)
         self._x_resistance = x_resistance
 
+    def _effective_vref(self):
+        if self.vref is not None:
+            return self.vref
+
+        return INTERNAL_VREF
+
 
     def _read_coord(self, channel_select):
 
@@ -358,20 +368,63 @@ class TSC2046:
         # Thankfully, that formula simplifies to:
         # T = 2572.52 K/V (kelvins per volt), or
         # T = 2.57257 K/mV (kelvins per mimivolt).
-        pass
 
-    @property
-    def temperature(self) -> float
-        pass
+        temp0 = self._read_extra(Addr.Ser.TEMP0)
+        temp1 = self._read_extra(Addr.Ser.TEMP1)
 
-    @property
-    def temperature_c(self) -> float
-        return self.temperature
+        # temp0 and temp1 are given as a ratio of the reference voltage
+        # and the full ADC scale.
+        # In other words, the V_temp0 = (temp0 * V_REF) / (2 ** ADC_SIZE)
+        # Which in our case means V_temp0 = (temp0 * effective_vref) / 4096.
+        # We want the change in voltage accross those two readings, and in
+        # millivolts, so:
+        vref = self._effective_vref()
+        delta_millivolts = (((temp1 - temp0) * vref) / 4096) * 1000
+
+        # Now apply that simplified formula:
+        temperature_kelvin = delta_millivolts * 2.573
+
+        return temperature_kelvin
 
     def _is_point_touched(self, point: TSPoint):
         # If the resistance is not infinity, NaN, some other non-finite number,
         # or 0, then the touchscreen is probably not being touched.
         return math.isfinite(point.z) and point.z != 0 and point.z < self.touched_threshold
+
+    @property
+    def temperature(self) -> float:
+        return self._read_temperature_k() - 273
+
+    @property
+    def temperature_c(self) -> float:
+        """
+        Equivalent to :py:meth:`TSC2046.temperature`; can be used for clarity.
+        """
+        return self.temperature
+
+    @property
+    def temperature_f(self) -> float:
+        celsius = self.temperature_c
+        return (9 / 5) * celsius + 32
+
+    @property
+    def battery_voltage(self):
+        # According to the datasheet, the battery voltage readings are divided
+        # down by 4 to simplifiy the logic in the chip, which means we have to
+        # multiply it back up again.
+        raw_vbat = self._read_extra(Addr.Ser.VBAT)
+
+        # V_BAT = ADC_VALUE * 4 * effective_vref / (2 ** ADC_SIZE)
+        vref = self._effective_vref()
+        return (raw_vbat * VBAT_MULTIPLIER * vref) / 4096
+
+    @property
+    def auxiliary_voltage(self):
+
+        raw_vaux = self._read_extra(Addr.Ser.AUX)
+
+        # V_AUX = (ADC_VALUE * effective_vref) / (2 ** ADC_SIZE)
+        return (raw_vaux * self._effective_vref()) / 4096
 
 
     def is_touched(self) -> bool:
