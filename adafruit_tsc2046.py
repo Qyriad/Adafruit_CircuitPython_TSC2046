@@ -6,20 +6,116 @@
 `adafruit_tsc2046`
 ================================================================================
 
-CircuitPython library for the TI TSC2046 gyroscope
+CircuitPython library for the TI TSC2046 resistive touchscreen.
 
 
 * Author(s): Qyriad
 
+.. _implementation_notes:
+
 Implementation Notes
 --------------------
 
-**Hardware:**
+.. _hardware:
+
+Hardware
+^^^^^^^^
 
 .. todo:: Add links to any specific hardware product page(s), or category page(s).
   Use unordered list & hyperlink rST inline format: "* `Link Text <url>`_"
 
-**Software and Dependencies:**
+
+.. _connecting:
+
+Connecting the breakout
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Adafruit's TSC2046 breakout board will have 11 pins. At least 6 of those pins
+must be connected to use the touchscreen: Vin, GND, SCK, MISO, MOSI, and CS. Vin
+should be connected to ``+5V`` for 5V boards like the Arduino Uno, and ``+3V3``
+for 3.3V boards like the Adafruit Feathers. Check the documentation for your
+board to find the IO voltage. It will likely be labled as something like
+"I/O Voltage" or "Logic Voltage".
+
+The ``CS`` (chip select) pin on the TSC2046 Breakout can be connected to any
+digital pin on your CircuitPython board, but you must pass whichever pin you use
+as the ``cs`` argument of :py:meth:`TSC2046`.
+
+The other 4 pins should be connected as follows:
+
+====================  =========
+TSC2046 Breakout Pin  Board Pin
+====================  =========
+GND                   GND
+SCK                   SCK
+MISO                  CIPO
+MOSI                  COPI
+====================  =========
+
+Check the pinout of your board to see which pin numbers these correspond to.
+
+
+.. _irq_pin:
+
+The IRQ Pin
+^^^^^^^^^^^
+
+The IRQ pin can be used with CircuitPython's :py:mod:`~countio` module to
+trigger code whenever the touchscreen detects a touch. To do this, connect the
+IRQ pin to a digital pin on your CitcuitPython board, and follow the
+instructions `here <https://learn.adafruit.com/cooperative-multitasking-in-circuitpython-with-asyncio/handling-interrupts>`_
+for setting up CircuitPython's interrupts.
+
+
+.. _vbat_pin:
+
+The Vbat Pin
+^^^^^^^^^^^^
+
+The Vbat pin can be used to measure some other voltage external to the
+touchscreen, though as the name suggests it is intended to measure a battery. To
+do this, connect the positive terminal of your battery to the Vbat pin, and the
+negative terminal to a common ground (GND), and read
+:py:attr:`TSC2046.battery_voltage`. You can measure voltages (inclusively)
+between 0V and 6V this way.
+
+
+.. _aux_pin:
+
+The AUX Pin
+^^^^^^^^^^^
+
+The AUX pin, like the Vbat pin, can be used to measure some other voltage
+external to the touchscreen. Unlike Vbat, however, the maximum voltage this pin
+can measure is determined by the reference voltage, which by default is 2.5V. To
+measure higher voltages with this pin, take a look at the next paragraph which
+talks about VRef.
+
+
+.. _vref_pin:
+
+The VRef Pin
+^^^^^^^^^^^^
+
+The VRef pin can be used to override the "reference voltage" that the TSC2046
+uses to measure other voltages. The TSC2046 has an internal reference voltage of
+2.5V that by default we use when measuring temperature, Vbat, and AUX voltages.
+Connecting a 5V supply to the VRef pin will instead allow us to use that as the
+reference voltage, which will increase the *accuracy* of voltage reads for
+temperature, Vbat, and AUX; and will also increase the *range* of voltage reads
+for AUX.
+
+However, and this is important, if you connect something to the VRef pin, you
+must connect VRef to **the same thing you connected Vin to.***
+
+If you *do* override the reference voltage, set :py:attr:`TSC2046.vref` to that
+voltage.
+
+
+.. _software:
+
+Software and Dependencies
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * Adafruit CircuitPython firmware for the supported boards:
   https://circuitpython.org/downloads
@@ -28,9 +124,55 @@ Implementation Notes
   based on the library's use of either.
 
  * Adafruit's Bus Device library: https://github.com/adafruit/Adafruit_CircuitPython_BusDevice
+
+
+.. _code:
+
+Using the Library
+^^^^^^^^^^^^^^^^^
+
+Once you have your board connected up, interacting with it will be done with the
+:py:class:`TSC2046` class. First create an instance of this class, and then read
+:py:attr:`touched_point` to get coordinates of the current touch as a
+:py:class:`TSPoint` object. :py:attr:`touched_point` will be `None` if the
+touchscreen isn't currently being touched. :py:class:`TSPoint` objects contain
+the direct X and Y coordinates as ``point.x`` and ``point.y``. The pressure is
+in ``point.z``, and its value *decreases* as physical pressure *increases*.
+
+.. note:: :py:meth:`TSC2046` has one particularly notable required parameter,
+    ``x_resistance`` - the value you pass here is something you must measure
+    with a multimeter. Set your multimeter to measure resistance, place one
+    probe on the pin-hole labeled "X-" on your TSC2046 breakout board, and place
+    the other probe on the pin-hole labeled "X+". Your multimeter should show
+    you a number in ohms (Ω), the unit for resistance. Pass that number as the
+    ``x_resistance`` argument. If your multimeter gives you a value in kilohms
+    (kΩ), divide that number by 1000 to get ohms and pass that value for the
+    ``x_resistance`` argument. If you do not have a multimeter or otherwise
+    don't have a measurement, ``400`` (400Ω) is a reasonable value to use
+    here, though note that the pressure measurements in
+    :py:attr:`TSC2046.touched_point` may not be accurate in that case.
+
+Below is a simple example; a more complete example can be found in the
+``examples/`` directory.
+
+.. code-block:: python
+
+    import time
+    import board
+    import digitalio
+    import adafruit_tsc2046
+
+    spi = board.SPI()
+    cs = digitalio.DigitalInOut(board.D5)
+
+    touchscreen = adafruit_tsc2046.TSC2046(spi, cs)
+
+    while True:
+        print(touchscreen.touched_point)
+        time.sleep(0.2)
+
 """
 
-# imports
 from typing import Optional
 import math
 import digitalio
@@ -42,7 +184,7 @@ from micropython import const
 __version__ = "0.0.0+auto.0"
 __repo__ = "https://github.com/Qyriad/Adafruit_CircuitPython_TSC2046.git"
 
-# Use 2kHz as a reasonable default frequency.
+# Use 2MHz as a reasonable default frequency.
 SPI_DEFAULT_FREQ_HZ = const(2_000_000)
 
 INTERNAL_VREF = const(2.5)
@@ -71,13 +213,38 @@ class Addr:
 
 
 class CommandBits:
+    """
+    :meta private:
+    """
 
     def __init__(self):
 
+        # A2:A0: the channel select/"address" bits, which control the
+        # multiplexer.
         self.addr = 0
+
+        # ADC conversion mode: LOW for the 12-bit mode, and HIGH for 8-bit mode.
         self.use_8_bit_conv = False
+
+        # SER/DFR': use the internal or external VREF (HIGH), or use the voltage
+        # across the touchscreen drivers as the ADC reference voltage (LOW).
+        # The latter is more accurate, but is only available for touchscreen
+        # coordinate reads, and not available for temperature, VBAT, or the
+        # other extras.
         self.single_ended_ref = False
+
+        # PD1: Enable (HIGH) or disable (LOW) the internal VREF.
         self.enable_internal_vref = False
+
+        # PD0: This bit is technically for enabling (HIGH) or disabling (LOW)
+        # the ADC, but when PD1 and PD0 are both 0, then it leaves the ADC off
+        # *between* conversions. According to the datasheet the ADC is able to
+        # power up instantly and there are no delays incured by leaving the ADC
+        # powered off between conversions. Leaving the ADC on is intended for
+        # certain strategies that use external capacitors to filter out
+        # touchscreen noise. This doesn't apply to us, but there is one more
+        # consideration, which is that the PENIRQ' output used to trigger
+        # interrupts is disabled if this bit is HIGH (True).
         self.enable_or_idle_adc = False
 
     def to_bytearray(self) -> bytearray:
@@ -136,6 +303,27 @@ class TSC2046:
     """
     General class for interacting with the TI TSC2046 touchscreen.
     You probably want :py:attr:`touched_point`.
+
+    :param ~busio.SPI spi: The SPI bus interace to use when communicating to this
+        touchscreen. :py:func:`~board.SPI()<board.SPI>` is the default SPI interface and likely
+        the one you want.
+    :param ~digitalio.DigitalInOut cs: The pin on your board that you have
+        connected to the SPI CS (Chip Select) pin on the TSC2046.
+
+    :param int x_resistance: The resistance in ohms between X- and X+ on the
+        TSC2046 breakout. With a multimeter set to measure resistance, place one
+        probe on the pin-hole labeled "X-" on your TSC2046 breakout board, and
+        place the other proble on the pin-hole labled "X+". Your multimeter
+        should show you a number in ohms (Ω), the unit for resistance. Pass that
+        number as this parameter. If your multimeter gives you a value in
+        kilohms (kΩ), divide that number by 1000 to get ohms and pass that.
+
+        If you do not have a multimeter or otherwise don't have a measurement to
+        pass, ``400`` (400Ω) is a reasonable value to use here.
+
+    :param int baudrate: The clock frequency of the SPI peripheral. Defaults to
+        2 MHz if not specified. Must not be higher than 2 MHz, per the TSC2046
+        datasheet.
     """
 
     def __init__(self, spi: busio.SPI, cs: digitalio.DigitalInOut, x_resistance=400, baudrate=SPI_DEFAULT_FREQ_HZ):
@@ -184,10 +372,9 @@ class TSC2046:
         """
         Enables or disables interrupts that fire when the touchscreen is
         touched. When an interrupt fires, the ``IRQ`` pin on the TSC2046 is
-        pulled LOW. That pin can be connected to an interrupt-enabled pin to
-        run code when the TSC2046 detects a touch.
-
-        .. todo:: Document CircuitPython interrupt stuff.
+        pulled LOW. That pin can be used with CircuitPython's :py:mod:`~countio`
+        module to run code when the TSC2046 detects a touch. See :ref:`irq_pin`
+        for more information.
 
         Defaults to `True`.
         """
