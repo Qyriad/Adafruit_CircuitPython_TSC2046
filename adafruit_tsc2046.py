@@ -65,7 +65,8 @@ The IRQ Pin
 The IRQ pin can be used with CircuitPython's :py:mod:`~countio` module to
 trigger code whenever the touchscreen detects a touch. To do this, connect the
 IRQ pin to a digital pin on your CitcuitPython board, and follow the
-instructions `here <https://learn.adafruit.com/cooperative-multitasking-in-circuitpython-with-asyncio/handling-interrupts>`_
+instructions `here
+<https://learn.adafruit.com/cooperative-multitasking-in-circuitpython-with-asyncio/handling-interrupts>`_
 for setting up CircuitPython's interrupts.
 
 
@@ -193,8 +194,16 @@ INTERNAL_VREF = 2.5
 VBAT_MULTIPLIER = const(4)
 
 
-class Addr:
-    class Ser:
+# These classes are purely for organization. Tell pylint to allow a lack of public methods.
+class Addr:  # pylint: disable=too-few-public-methods
+    """
+    Multiplexer "addresses", which become the ``channel_select`` argument of
+    :py:meth:`TSC2046._read_coord`.
+
+    :meta private:
+    """
+
+    class Ser:  # pylint: disable=too-few-public-methods
         """
         Multiplexer addresses for the various outputs in single-ended reference
         mode.
@@ -209,7 +218,7 @@ class Addr:
         AUX = 0b110
         TEMP1 = 0b111
 
-    class Dfr:
+    class Dfr:  # pylint: disable=too-few-public-methods
         """
         Multiplexer addresses for the various outputs in differential reference
         mode.
@@ -256,6 +265,9 @@ class CommandBits:
         self.enable_or_idle_adc = False
 
     def to_bytearray(self) -> bytearray:
+        """
+        Convert these command bits to a Python bytearray.
+        """
         self.addr = self.addr & 0b111
 
         byte = (
@@ -380,7 +392,7 @@ class TSC2046:
     def __init__(
         self,
         spi: busio.SPI,
-        cs: digitalio.DigitalInOut,
+        cs: digitalio.DigitalInOut,  # pylint: disable=invalid-name
         x_resistance=400,
         baudrate=SPI_DEFAULT_FREQ_HZ,
     ):
@@ -719,8 +731,7 @@ class TSC2046:
         point = self._get_point()
         if self._is_point_touched(point):
             return point
-        else:
-            return None
+        return None
 
     def _get_point(self) -> TSPoint:
         """
@@ -737,8 +748,8 @@ class TSC2046:
 
         x = self._read_coord(Addr.Dfr.X_POS)
         y = self._read_coord(Addr.Dfr.Y_POS)
-        z1 = self._read_coord(Addr.Dfr.Z1_POS)
-        z2 = self._read_coord(Addr.Dfr.Z2_POS)
+        z1 = self._read_coord(Addr.Dfr.Z1_POS)  # pylint: disable=invalid-name
+        z2 = self._read_coord(Addr.Dfr.Z2_POS)  # pylint: disable=invalid-name
 
         # If we would divide by 0, consider R_TOUCH to be zero.
         if z1 == 0:
