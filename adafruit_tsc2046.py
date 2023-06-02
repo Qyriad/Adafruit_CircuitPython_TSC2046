@@ -21,8 +21,10 @@ Implementation Notes
 Hardware
 ^^^^^^^^
 
-.. todo:: Add links to any specific hardware product page(s), or category page(s).
-  Use unordered list & hyperlink rST inline format: "* `Link Text <url>`_"
+* `TI TSC2046 Resistive Touchscreen <https://www.adafruit.com/product/333>`_
+* Adafruit TSC2046 Breakout
+
+.. todo:: Link the breakout to the Adafruit store page when it exists.
 
 
 .. _connecting:
@@ -106,7 +108,7 @@ temperature, Vbat, and AUX; and will also increase the *range* of voltage reads
 for AUX.
 
 However, and this is important, if you connect something to the VRef pin, you
-must connect VRef to **the same thing you connected Vin to.***
+must connect VRef to **the same thing you connected Vin to.**
 
 If you *do* override the reference voltage, set :py:attr:`TSC2046.vref` to that
 voltage.
@@ -120,10 +122,8 @@ Software and Dependencies
 * Adafruit CircuitPython firmware for the supported boards:
   https://circuitpython.org/downloads
 
-.. todo:: Uncomment or remove the Bus Device and/or the Register library dependencies
-  based on the library's use of either.
 
- * Adafruit's Bus Device library: https://github.com/adafruit/Adafruit_CircuitPython_BusDevice
+* Adafruit's Bus Device library: https://github.com/adafruit/Adafruit_CircuitPython_BusDevice
 
 
 .. _code:
@@ -133,11 +133,13 @@ Using the Library
 
 Once you have your board connected up, interacting with it will be done with the
 :py:class:`TSC2046` class. First create an instance of this class, and then read
-:py:attr:`touched_point` to get coordinates of the current touch as a
-:py:class:`TSPoint` object. :py:attr:`touched_point` will be `None` if the
-touchscreen isn't currently being touched. :py:class:`TSPoint` objects contain
-the direct X and Y coordinates as ``point.x`` and ``point.y``. The pressure is
-in ``point.z``, and its value *decreases* as physical pressure *increases*.
+:py:attr:`TSC2046.touched_point` to get coordinates of the current touch as a
+:py:class:`TSPoint` object. :py:attr:`TSC2046.touched_point` will be `None` if
+the touchscreen isn't currently being touched. :py:class:`TSPoint` objects
+contain the direct X and Y coordinates as :py:attr:`TSPoint.x` and
+:py:attr:`TSPoint.y`. You may also get the X and Y coordinates as percentages
+with :py:attr:`TSPoint.x_percent` and :py:attr:`TSPoint.y_percent`. The pressure
+is in :py:attr:`TSPoint.z`, and its value *decreases* as physical pressure *increases*.
 
 .. note:: :py:meth:`TSC2046` has one particularly notable required parameter,
     ``x_resistance`` - the value you pass here is something you must measure
@@ -173,7 +175,6 @@ Below is a simple example; a more complete example can be found in the
 
 """
 
-from typing import Optional
 import math
 import digitalio
 import busio
@@ -187,14 +188,17 @@ __repo__ = "https://github.com/Qyriad/Adafruit_CircuitPython_TSC2046.git"
 # Use 2MHz as a reasonable default frequency.
 SPI_DEFAULT_FREQ_HZ = const(2_000_000)
 
-INTERNAL_VREF = const(2.5)
+INTERNAL_VREF = 2.5
 
 VBAT_MULTIPLIER = const(4)
 
 class Addr:
 
     class Ser:
-        """ Addresses in single-ended reference mode. """
+        """
+        Multiplexer addresses for the various outputs in single-ended reference
+        mode.
+        """
         TEMP0 = 0b000
         Y_POS = 0b001
         VBAT = 0b010
@@ -205,7 +209,10 @@ class Addr:
         TEMP1 = 0b111
 
     class Dfr:
-        """ Addresses in differential reference mode. """
+        """
+        Multiplexer addresses for the various outputs in differential reference
+        mode.
+        """
         Y_POS = 0b001
         Z1_POS = 0b011
         Z2_POS = 0b100
@@ -268,6 +275,9 @@ class TSPoint:
     """
     The type of :py:attr:`TSC2046.touched_point`, which represents a
     touchscreen point. See the individual fields for more information.
+
+    .. note:: You usually don't need to call the constructor for this class in user code.
+        Read the value of :py:attr:`TSC2046.touched_point` instead.
     """
 
     def __init__(self, x: int, y: int, z: float):
@@ -276,14 +286,14 @@ class TSPoint:
         """
         The full scale raw X coordinate from the touchscreen.
 
-        If the touchscreen is not being touched, this value is meaningless.
+        For the X-coordinate as a percentage, see :py:attr:`x_percent`.
         """
 
         self.y: int = y
         """
         The full scale raw Y coordinate from the touchscreen.
 
-        If the touchscreen is not being touched, this value is meaningless.
+        For the Y-coordinate as a percentage, see :py:attr:`y_percent`.
         """
 
         self.z: float = z
@@ -294,6 +304,27 @@ class TSPoint:
         value is not in an arbitrary unit of a full scale, but is a physical
         measurement, in ohms (Ω).
         """
+
+    @property
+    def x_percent(self) -> float:
+        """
+        The X-coordinate as a percentage. (read-only)
+
+        Note that physical touchscreens vary,
+        and the range of yours may not perfectly extend from 0% to 100%.
+        """
+        return self.x / 4096
+
+    @property
+    def y_percent(self) -> float:
+        """
+        The Y-coordinate as a percentage. (read-only)
+
+        Note that the physical touchscreens
+        vary touchscreens vary, and the range of yours may not perfectly extend
+        from 0% to 100%.
+        """
+        return self.y / 4096
 
     def __repr__(self):
         return f"X={self.x}, Y={self.y}, Z={self.z}"
@@ -307,6 +338,7 @@ class TSC2046:
     :param ~busio.SPI spi: The SPI bus interace to use when communicating to this
         touchscreen. :py:func:`~board.SPI()<board.SPI>` is the default SPI interface and likely
         the one you want.
+
     :param ~digitalio.DigitalInOut cs: The pin on your board that you have
         connected to the SPI CS (Chip Select) pin on the TSC2046.
 
@@ -324,11 +356,33 @@ class TSC2046:
     :param int baudrate: The clock frequency of the SPI peripheral. Defaults to
         2 MHz if not specified. Must not be higher than 2 MHz, per the TSC2046
         datasheet.
+
+    .. note:: The way power works with the TSC2046 is a bit unintuitive. When
+        interrupts are *enabled* (which is the default, and only changed by
+        setting :py:attr:`interrupts_enabled` to `False`), the TSC2046 is put
+        into an "auto power-down" mode, in which the TSC2046 automatically
+        powers down at the end of a read, and automatically powers back up at
+        the beginning of a read. According to the datasheet there's no delay for
+        that and the power-up is instant. Because of that, this library leaves
+        the TSC2046 in that mode by default.
+
+        In that mode, however, TSC2046 interrupts are enabled, meaning the IRQ
+        pin goes LOW when the touchscreen is touched. *If* you have
+        CircuitPython interrupts set up *and* you don't want interrupts from
+        this chip, you should set :py:attr:`interrupts_enabled` to `False`.
+
+        This will prevent the TSC2046 from powering down between reads, which
+        uses more power, but will prevent the IRQ pin from going LOW if the
+        touchscreen is touched.
+
+        See :ref:`irq_pin` for more information on how these IRQs work.
     """
 
     def __init__(self, spi: busio.SPI, cs: digitalio.DigitalInOut, x_resistance=400, baudrate=SPI_DEFAULT_FREQ_HZ):
 
-        self.vref: Optional[float] = None
+        # TODO: This syntax was introduced in Python 3.10.
+        # What version of Python do we need to conform to?
+        self.vref: float | None = None
         """
         The voltage (in volts) connected to the TSC2046's VRef pin, if any.
 
@@ -345,6 +399,9 @@ class TSC2046:
         the TSC2046's Vin pin, or not connected at all (Vin should be connected
         to a 5V or 3.3V supply from your CircuitPython board). If you do not
         connect VRef, leave this as `None`.
+
+        :type: typing.Optional[float]
+        :value: `None`
         """
 
         # NOTE(Qyriad): In my testing, the absolute most delicate touch where
@@ -366,6 +423,9 @@ class TSC2046:
         touching.
 
         Defaults to :const:`100000` for 100,000kΩ.
+
+        :type: float
+        :value: :const:`100000`
         """
 
         self.interrupts_enabled: bool = True
@@ -377,6 +437,9 @@ class TSC2046:
         for more information.
 
         Defaults to `True`.
+
+        :type: bool
+        :value: `True`
         """
 
 
@@ -391,6 +454,7 @@ class TSC2046:
         self.spi_device = SPIDevice(spi, cs, baudrate=baudrate, polarity=0, phase=0)
         self._x_resistance = x_resistance
 
+    @property
     def _effective_vref(self):
         if self.vref is not None:
             return self.vref
@@ -528,7 +592,7 @@ class TSC2046:
         # Which in our case means V_temp0 = (temp0 * effective_vref) / 4096.
         # We want the change in voltage accross those two readings, and in
         # millivolts, so:
-        vref = self._effective_vref()
+        vref = self._effective_vref
         delta_millivolts = (((temp1 - temp0) * vref) / 4096) * 1000
 
         # Now apply that simplified formula:
@@ -543,62 +607,112 @@ class TSC2046:
 
     @property
     def temperature(self) -> float:
+        """
+        The TSC2046's read temperature in degrees Celsius (°C). (read-only)
+
+        :type: float
+
+        .. seealso:: :py:attr:`temperature_f`
+        """
         return self._read_temperature_k() - 273
 
     @property
     def temperature_c(self) -> float:
         """
+        The TSC2046's read temperature in degrees Celsius (°C). (read-only)
+
         Equivalent to :py:meth:`TSC2046.temperature`; can be used for clarity.
+
+        :type: float
+
+        .. seealso:: :py:attr:`temperature_f`
         """
         return self.temperature
 
     @property
     def temperature_f(self) -> float:
+        """
+        The TSC2046's read temperature in degrees Fahrenheit (°F). (read-only)
+
+        :type: float
+
+        .. seealso:: :py:attr:`temperature_c`
+        """
         celsius = self.temperature_c
         return (9 / 5) * celsius + 32
 
     @property
-    def battery_voltage(self):
+    def battery_voltage(self) -> float:
+        """
+        The voltage on the `VBat pin <vbat_pin>`, in volts. (read-only)
+
+        The TSC2046 allows you to connect the positive voltage terminal of a
+        battery to the "VBat" pin, and monitor its voltage. The battery voltage
+        can be (inclusively) between 0V and 6V, regardless of the voltage supply
+        provided to Vin/Vcc.
+
+        :type: float
+        """
         # According to the datasheet, the battery voltage readings are divided
         # down by 4 to simplifiy the logic in the chip, which means we have to
         # multiply it back up again.
         raw_vbat = self._read_extra(Addr.Ser.VBAT)
 
         # V_BAT = ADC_VALUE * 4 * effective_vref / (2 ** ADC_SIZE)
-        vref = self._effective_vref()
+        vref = self._effective_vref
         return (raw_vbat * VBAT_MULTIPLIER * vref) / 4096
 
     @property
-    def auxiliary_voltage(self):
+    def auxiliary_voltage(self) -> float:
+        """
+        The voltage on the `AUX pin <aux_pin>`, in volts. (read-only)
+
+        The TSC2046 allows you to measure the voltage of whatever you connect to
+        the AUX pin, however the voltage cannot be higher than the voltage
+        reference. See the documentation for :py:attr:`vref` for more
+        information, but in summary, if you don't connect anything to the "VRef"
+        pin on your TSC2046 the maximum auxiliary voltage you can read is 2.5V.
+        If you want to be able to read higher voltages, connect the same pin you
+        connected to "Vin" on the TSC2046 to the VRef pin on the TSC2046 and set
+        :py:attr:`vref` to the voltage of those pins.
+
+        Alternatively, if you want to measure voltages higher than the reference
+        voltage, see :py:attr:`battery_voltage`, which can read up to 6V.
+
+        :type: float
+        """
 
         raw_vaux = self._read_extra(Addr.Ser.AUX)
 
         # V_AUX = (ADC_VALUE * effective_vref) / (2 ** ADC_SIZE)
-        return (raw_vaux * self._effective_vref()) / 4096
+        return (raw_vaux * self._effective_vref) / 4096
 
 
     @property
     def is_touched(self) -> bool:
         """
-        Determines if the touchscreen is currently being touched.
+        The current touched state of the touchscreen. (read-only)
+
+        This is `True` if the touchscreen is being touched, `False` if it is
+        not.
 
         You can also change the threshold used to determine if the touchscreen
         is being touched by setting :py:attr:`TSC2046.touched_threshold`.
 
-        .. seealso:: :py:meth:`touched_point`
+        :type: bool
 
-        :returns: `True` if the touchscreen is being touched, `False` if it is
-            not.
-        :rtype: bool
+        .. seealso:: :py:attr:`touched_point`
         """
 
         return self._is_point_touched(self._get_point())
 
     @property
-    def touched_point(self) -> Optional[TSPoint]:
+    def touched_point(self) -> TSPoint | None:
         """
         The X, Y, and Z coordinates of the current touch on the touchscreen, or
-        `None` if the touchscreen is not being touched.
+        `None` if the touchscreen is not being touched. (read-only)
+
+        :type: typing.Optional[TSPoint]
         """
 
         point = self._get_point()
@@ -610,6 +724,7 @@ class TSC2046:
     def _get_point(self) -> TSPoint:
         """
         Gets the coordinates of the current touch on the touchscreen.
+
         Use :py:meth:`TSC2046.is_touched` to determine if the touchscreen is
         being touched in the first place.
 
