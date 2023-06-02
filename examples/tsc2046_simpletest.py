@@ -29,7 +29,6 @@ cs_pin = digitalio.DigitalInOut(board.D5)
 touchscreen = adafruit_tsc2046.TSC2046(spi, cs_pin)
 
 while True:
-
     point = touchscreen.touched_point
 
     # If the touchscreen isn't being touched at all, then `point` will be None.
