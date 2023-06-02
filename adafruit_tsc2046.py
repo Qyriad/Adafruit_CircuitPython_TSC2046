@@ -192,13 +192,14 @@ INTERNAL_VREF = 2.5
 
 VBAT_MULTIPLIER = const(4)
 
-class Addr:
 
+class Addr:
     class Ser:
         """
         Multiplexer addresses for the various outputs in single-ended reference
         mode.
         """
+
         TEMP0 = 0b000
         Y_POS = 0b001
         VBAT = 0b010
@@ -213,6 +214,7 @@ class Addr:
         Multiplexer addresses for the various outputs in differential reference
         mode.
         """
+
         Y_POS = 0b001
         Z1_POS = 0b011
         Z2_POS = 0b100
@@ -225,7 +227,6 @@ class CommandBits:
     """
 
     def __init__(self):
-
         # A2:A0: the channel select/"address" bits, which control the
         # multiplexer.
         self.addr = 0
@@ -255,16 +256,15 @@ class CommandBits:
         self.enable_or_idle_adc = False
 
     def to_bytearray(self) -> bytearray:
-
         self.addr = self.addr & 0b111
 
         byte = (
-            1 << 7 | # START bit, always 1.
-            self.addr << 4 |
-            int(self.use_8_bit_conv) << 3 |
-            int(self.single_ended_ref) << 2 |
-            int(self.enable_internal_vref) << 1 |
-            int(self.enable_or_idle_adc)
+            1 << 7
+            | self.addr << 4  # START bit, always 1.
+            | int(self.use_8_bit_conv) << 3
+            | int(self.single_ended_ref) << 2
+            | int(self.enable_internal_vref) << 1
+            | int(self.enable_or_idle_adc)
         )
 
         return bytearray([byte])
@@ -281,7 +281,6 @@ class TSPoint:
     """
 
     def __init__(self, x: int, y: int, z: float):
-
         self.x: int = x
         """
         The full scale raw X coordinate from the touchscreen.
@@ -378,8 +377,13 @@ class TSC2046:
         See :ref:`irq_pin` for more information on how these IRQs work.
     """
 
-    def __init__(self, spi: busio.SPI, cs: digitalio.DigitalInOut, x_resistance=400, baudrate=SPI_DEFAULT_FREQ_HZ):
-
+    def __init__(
+        self,
+        spi: busio.SPI,
+        cs: digitalio.DigitalInOut,
+        x_resistance=400,
+        baudrate=SPI_DEFAULT_FREQ_HZ,
+    ):
         # TODO: This syntax was introduced in Python 3.10.
         # What version of Python do we need to conform to?
         self.vref: float | None = None
@@ -442,7 +446,6 @@ class TSC2046:
         :value: `True`
         """
 
-
         # Regarding SPI mode, timing diagrams on the datasheet show DCLK idling
         # LOW, which means the leading edge is a rising edge, which means
         # CPOL (polarity) = 0.
@@ -461,9 +464,7 @@ class TSC2046:
 
         return INTERNAL_VREF
 
-
     def _read_coord(self, channel_select):
-
         cmd = CommandBits()
 
         cmd.addr = channel_select
@@ -522,7 +523,6 @@ class TSC2046:
         return (out_int >> 3) & 0xFFF
 
     def _read_extra(self, channel_select):
-
         cmd = CommandBits()
 
         cmd.addr = channel_select
@@ -537,7 +537,7 @@ class TSC2046:
         cmd.single_ended_ref = True
 
         # If the user connected an external VREF, turn the internal one off.
-        cmd.enable_internal_vref = (self.vref is not None)
+        cmd.enable_internal_vref = self.vref is not None
 
         # Leaving the ADC off has no downsides, except that the PENIRQ' output
         # used to trigger interrupts is also disabled if this bit is HIGH.
@@ -603,7 +603,9 @@ class TSC2046:
     def _is_point_touched(self, point: TSPoint):
         # If the resistance is not infinity, NaN, some other non-finite number,
         # or 0, then the touchscreen is probably not being touched.
-        return math.isfinite(point.z) and point.z != 0 and point.z < self.touched_threshold
+        return (
+            math.isfinite(point.z) and point.z != 0 and point.z < self.touched_threshold
+        )
 
     @property
     def temperature(self) -> float:
@@ -686,7 +688,6 @@ class TSC2046:
 
         # V_AUX = (ADC_VALUE * effective_vref) / (2 ** ADC_SIZE)
         return (raw_vaux * self._effective_vref) / 4096
-
 
     @property
     def is_touched(self) -> bool:
