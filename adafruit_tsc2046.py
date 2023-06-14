@@ -271,12 +271,12 @@ class CommandBits:
         self.addr = self.addr & 0b111
 
         byte = (
-            1 << 7
-            | self.addr << 4  # START bit, always 1.
+            1 << 7  # START bit, always 1
+            | self.addr << 4  # Bits 6:4
             | int(self.use_8_bit_conv) << 3
             | int(self.single_ended_ref) << 2
             | int(self.enable_internal_vref) << 1
-            | int(self.enable_or_idle_adc)
+            | int(self.enable_or_idle_adc) << 0
         )
 
         return bytearray([byte])
@@ -398,7 +398,7 @@ class TSC2046:
     ):
         # TODO: This syntax was introduced in Python 3.10.
         # What version of Python do we need to conform to?
-        self.vref: float | None = None
+        self.external_vref: float | None = None
         """
         The voltage (in volts) connected to the TSC2046's VRef pin, if any.
 
@@ -471,8 +471,8 @@ class TSC2046:
 
     @property
     def _effective_vref(self):
-        if self.vref is not None:
-            return self.vref
+        if self.external_vref is not None:
+            return self.external_vref
 
         return INTERNAL_VREF
 
@@ -548,8 +548,8 @@ class TSC2046:
         # reference mode.
         cmd.single_ended_ref = True
 
-        # If the user connected an external VREF, turn the internal one off.
-        cmd.enable_internal_vref = self.vref is not None
+        # If the user did not connect an external VREF, turn the internal one on.
+        cmd.enable_internal_vref = self.external_vref is None
 
         # Leaving the ADC off has no downsides, except that the PENIRQ' output
         # used to trigger interrupts is also disabled if this bit is HIGH.
@@ -683,12 +683,12 @@ class TSC2046:
 
         The TSC2046 allows you to measure the voltage of whatever you connect to
         the AUX pin, however the voltage cannot be higher than the voltage
-        reference. See the documentation for :py:attr:`vref` for more
+        reference. See the documentation for :py:attr:`external_vref` for more
         information, but in summary, if you don't connect anything to the "VRef"
         pin on your TSC2046 the maximum auxiliary voltage you can read is 2.5V.
         If you want to be able to read higher voltages, connect the same pin you
         connected to "Vin" on the TSC2046 to the VRef pin on the TSC2046 and set
-        :py:attr:`vref` to the voltage of those pins.
+        :py:attr:`external_vref` to the voltage of those pins.
 
         Alternatively, if you want to measure voltages higher than the reference
         voltage, see :py:attr:`battery_voltage`, which can read up to 6V.
