@@ -30,6 +30,9 @@ touchscreen = adafruit_tsc2046.TSC2046(spi, cs_pin)
 
 while True:
     point = touchscreen.touched_point
+    bat_voltage = touchscreen.battery_voltage
+    aux_voltage = touchscreen.auxiliary_voltage
+    temp_c = touchscreen.temperature_c
 
     # If the touchscreen isn't being touched at all, then `point` will be None.
     if point is not None:
@@ -37,10 +40,6 @@ while True:
         # measurement in resistance. This resistance *decreases* as the physical
         # pressure *increases*.
         print(f"Touched: ({point.x}, {point.y}), with {point.z} omhs of pressure")
-
-    bat_voltage = touchscreen.battery_voltage
-    aux_voltage = touchscreen.auxiliary_voltage
-    temp_c = touchscreen.temperature_c
 
     print(f"Battery: {bat_voltage:.2f}V")
     print(f"Aux: {aux_voltage:.2f}V")
