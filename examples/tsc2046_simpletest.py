@@ -36,7 +36,7 @@ while True:
         # We get X and Y as coordinates, but Z (pressure) is a physical
         # measurement in resistance. This resistance *decreases* as the physical
         # pressure *increases*.
-        print(f"Touched: ({point.x}, {point.z}), with {point.z} omhs of pressure")
+        print(f"Touched: ({point.x}, {point.y}), with {point.z} omhs of pressure")
 
     bat_voltage = touchscreen.battery_voltage
     aux_voltage = touchscreen.auxiliary_voltage
@@ -45,5 +45,6 @@ while True:
     print(f"Battery: {bat_voltage:.2f}V")
     print(f"Aux: {aux_voltage:.2f}V")
     print(f"Temperature: {temp_c:.2f}°C")
+    print()
 
     time.sleep(0.5)
