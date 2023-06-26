@@ -21,7 +21,7 @@ Introduction
     :target: https://github.com/psf/black
     :alt: Code Style: Black
 
-CircuitPython library for the TI TSC2046 resistive touchscreen.
+CircuitPython library for the TI TSC2046 resistive touchscreen controller.
 
 
 Dependencies
@@ -37,19 +37,15 @@ This is easily achieved by downloading
 or individual libraries can be installed using
 `circup <https://github.com/adafruit/circup>`_.
 
+This library is for the TI TSC2046 resistive touchscreen controller and its
+`breakout board <https://www.adafruit.com/product/5767>`_.
 
-
-.. todo:: Describe the Adafruit product this library works with. For PCBs, you can also add the
-    image from the assets folder in the PCB's GitHub repo.
-
-`Purchase one from the Adafruit shop <http://www.adafruit.com/products/>`_
+`Purchase one from the Adafruit shop <http://www.adafruit.com/products/5767>`_
 
 Installing from PyPI
 =====================
 .. note:: This library is not available on PyPI yet. Install documentation is included
    as a standard element. Stay tuned for PyPI availability!
-
-.. todo:: Remove the above note if PyPI version is/will be available at time of release.
 
 On supported GNU/Linux systems like the Raspberry Pi, you can install the driver locally `from
 PyPI <https://pypi.org/project/adafruit-circuitpython-tsc2046/>`_.

@@ -22,9 +22,7 @@ Hardware
 ^^^^^^^^
 
 * `TI TSC2046 Resistive Touchscreen <https://www.adafruit.com/product/333>`_
-* Adafruit TSC2046 Breakout
-
-.. todo:: Link the breakout to the Adafruit store page when it exists.
+* `Adafruit TSC2046 Breakout <https://www.adafruit.com/product/5767>`_
 
 
 .. _connecting:
